@@ -1,0 +1,47 @@
+plugins {
+    id("org.jetbrains.intellij") version "1.13.2"
+    id 'java'
+    id("org.jetbrains.kotlin.jvm") version "1.8.10"
+}
+
+group 'com.york.java.to.go'
+version '1.0'
+
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+    implementation 'org.eclipse.tycho:org.eclipse.jdt.core:3.6.2.v_A76_R36x'
+    implementation 'org.eclipse.core:org.eclipse.core.jobs:3.5.0.v20100515'
+    implementation 'org.eclipse.core:org.eclipse.core.contenttype:3.4.100.v20100505-1235'
+    implementation 'org.eclipse.core:org.eclipse.core.resources:3.6.0.v20100526-0737'
+    implementation 'org.eclipse.core:org.eclipse.core.runtime:3.6.0.v20100505'
+    implementation 'org.eclipse.osgi:org.eclipse.osgi:3.6.0.v20100517'
+    implementation 'org.eclipse.osgi:org.eclipse.osgi:3.6.0.v20100517'
+
+    //implementation 'com.github.javaparser:javaparser-symbol-solver-core:3.15.21'
+    implementation 'com.github.javaparser:javaparser-core:3.15.21'
+    implementation 'org.apache.commons:commons-lang3:3.12.0'
+
+
+}
+
+// See https://github.com/JetBrains/gradle-intellij-plugin/
+intellij {
+    version = '2020.3.1'
+    updateSinceUntilBuild = false
+}
+
+patchPluginXml {
+    changeNotes = """
+      V1.0<br>
+      <em>init first version</em>"""
+}
+
+test {
+    useJUnitPlatform()
+}

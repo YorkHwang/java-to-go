@@ -1,0 +1,23 @@
+<idea-plugin>
+    <id>com.york.tool</id>
+    <name>java-to-go</name>
+    <vendor email="york_hwang@163.com" url="https://www.shimeiyue.com">york</vendor>
+    <idea-version since-build="203.1"/>
+    <description><![CDATA[java to go, which is a simple tool that can help us to convert java code to go code!]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Add your extensions here -->
+    </extensions>
+
+    <actions>
+        <action id="RightClickJava" class="com.york.java.to.go.ConvertJavaToGoAction" text="Convert Java to Go" description="JAVA TO GO">
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+        </action>
+
+        <action id="RightClickJavaFile" class="com.york.java.to.go.ConvertJavaToGoFileAction" text="Convert Java to Go" description="JAVA TO GO">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="first"/>
+        </action>
+    </actions>
+</idea-plugin>
