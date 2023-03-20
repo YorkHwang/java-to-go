@@ -1,18 +1,18 @@
 package com.york.java.to.go.service;
 
-import com.github.javaparser.JavaParser;
 import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.body.*;
 import com.york.java.to.go.domain.GoCodeResult;
 import com.york.java.to.go.domain.JtgParm;
-import org.apache.commons.lang3.StringUtils;
-import org.eclipse.jdt.core.dom.*;
+import com.york.java.to.go.domain.StructType;
+import com.york.java.to.go.util.Utils;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.List;
 
 
 /**
@@ -90,7 +90,7 @@ public class JavaConvertToGo {
             //map[keyType]valueType
             int dotIndex = javaType.indexOf(",");
             return "map[" + baseType2GoDefault(javaType.substring(4, dotIndex)) + "]" +
-                baseType2GoDefault(javaType.substring(dotIndex + 1, javaType.length() - 1));
+                    baseType2GoDefault(javaType.substring(dotIndex + 1, javaType.length() - 1));
         }
 
         return javaType;
@@ -104,151 +104,183 @@ public class JavaConvertToGo {
         return new String(b);
     }
 
-    static final String SOURCE = "package com.java.code.complete.entity;\n" +
-            "\n" +
-            "\n" +
-            "import lombok.AllArgsConstructor;\n" +
-            "import lombok.Data;\n" +
-            "import lombok.NoArgsConstructor;\n" +
-            "\n" +
-            "@Data\n" +
-            "@NoArgsConstructor\n" +
-            "@AllArgsConstructor\n" +
-            "public class Kid implements Comparable {\n" +
-            "\n" +
-            "    private Long id;\n" +
-            "    private String name;\n" +
-            "    private Integer age;\n" +
-            "    private Double height;\n" +
-            "\n" +
-            "    @Override\n" +
-            "    public int compareTo(final Object o) {\n" +
-            "        return 0;\n" +
-            "    }\n" +
-            "}";
-
-    public static void main(String[] args) {
-        com.github.javaparser.ast.CompilationUnit cu = StaticJavaParser.parse(SOURCE);
-        System.out.println("package="+cu.getPackageDeclaration().get().getName());
-        NodeList<com.github.javaparser.ast.body.TypeDeclaration<?>> typeDeclarations =  cu.getTypes();
-        System.out.println("Declarations="+typeDeclarations);
-        com.github.javaparser.ast.CompilationUnit.Storage storage = cu.getStorage().get();
-        System.out.println("storage="+storage);
-        NodeList<com.github.javaparser.ast.body.TypeDeclaration<?>> types = cu.getTypes();
-        System.out.println("types="+types);
-
-    }
-
     public static GoCodeResult parseToGo(final JtgParm jtgParm) {
 
-
-
-        if(StringUtils.isBlank(jtgParm.getJava())) {
+        if (Utils.isBlank(jtgParm.getJava())) {
             final GoCodeResult goCodeResult = new GoCodeResult();
-            goCodeResult.setGoCode("选中java class类代码");
+            goCodeResult.setGoCode("please select one java code");
             return goCodeResult;
         }
-        com.github.javaparser.ast.CompilationUnit cu = StaticJavaParser.parse(jtgParm.getJava());
-        cu.getPackageDeclaration().get().getName();
-
         final boolean hession2 = StructType.isHession2(jtgParm.getStructType());
         final StringBuilder goCode = new StringBuilder();
-        //创建解析器
-        final ASTParser parser = ASTParser.newParser(AST.JLS3);
-        //设定解析器的源代码字符
-        parser.setSource(jtgParm.getJava().toCharArray());
-        //使用解析器进行解析并返回AST上下文结果(CompilationUnit为根节点)
-        final CompilationUnit result = (CompilationUnit) parser.createAST(null);
+        CompilationUnit cu = StaticJavaParser.parse(jtgParm.getJava());
+        String packageName;
+        String fullPackageName = "unknown";
+        if (cu.getPackageDeclaration().isPresent()) {
+            packageName = Utils.isBlank(jtgParm.getPackageName())
+                    ? cu.getPackageDeclaration().get().getName().getIdentifier()
+                    : jtgParm.getPackageName();
+            goCode.append("package ").append(packageName).append("\r\n\r\n");
 
-        //获取类型
-        final List types = result.types();
-        //取得类型声明
-        TypeDeclaration typeDec = (TypeDeclaration) types.get(0);
-        //取得包名
-        PackageDeclaration packetDec = result.getPackage();
-        //取得类名
-        String className = typeDec.getName().toString();
-        //取得函数(Method)声明列表
-        MethodDeclaration methodDec[] = typeDec.getMethods();
-        //取得函数(Field)声明列表
-        FieldDeclaration fieldDec[] = typeDec.getFields();
+            fullPackageName = cu.getPackageDeclaration().get().getName().asString();
 
-        final String packageName = StringUtils.isEmpty(jtgParm.getPackageName())
-            ?pickPackageName(packetDec.getName().toString()):jtgParm.getPackageName();
+        } else {
+            packageName = Utils.isBlank(jtgParm.getPackageName())
+                    ? "unknown"
+                    : jtgParm.getPackageName();
+            goCode.append("package ").append(packageName).append("\r\n\r\n");
+        }
 
-        goCode.append("package ").append(packageName).append("\r\n\r\n");
         if (hession2) {
             goCode.append("import hessian \"github.com/apache/dubbo-go-hessian2\"\r\n\r\n");
         }
-        goCode.append("type ").append(className).append(" struct{");
 
-        for (final FieldDeclaration fieldDecEle : fieldDec) {
-            final VariableDeclarationFragment frag = (VariableDeclarationFragment) fieldDecEle.fragments().get(0);
-            final String javaFiledName = frag.getName().toString();
-            if ("serialVersionUID".equals(javaFiledName)) {
+        // package
+        final NodeList<com.github.javaparser.ast.body.TypeDeclaration<?>> types = cu.getTypes();
+        if (types == null || types.isEmpty()) {
+            final GoCodeResult goCodeResult = new GoCodeResult();
+            goCodeResult.setGoCode(goCode.toString());
+            goCodeResult.setPackageName("unknown");
+            goCodeResult.setStructName("no struct");
+            return goCodeResult;
+        }
+
+        final String typeName = types.get(0).getName().getIdentifier();
+        for (final TypeDeclaration type : types) {
+            if (!type.isClassOrInterfaceDeclaration()) {
                 continue;
             }
-            final String hessian = hession2 ? "   `hessian:\"" + javaFiledName + "\"`" : "";
-            final String filedName = upperFist(javaFiledName);
-            goCode.append("  \r\n").append(filedName).append(" ").append(javaType2Go(fieldDecEle.getType().toString())).append(hessian);
-        }
-
-        // 结构体结束
-        goCode.append("\r\n}\r\n");
-
-
-        //方法
-        for (final MethodDeclaration method : methodDec) {
-            // 方法关键词+名称
-            goCode.append("\r\nfunc (").append(lowerFist(className))
-                .append(" *").append(className).append(") ").append(method.getName())
-            ;
-
-            // 方法参数
-            int cnt = 0;
-            for (Iterator it = method.parameters().iterator(); it.hasNext(); ) {
-                if (cnt++ == 0) {
-                    goCode.append("(");
-                } else {
-                    goCode.append(",");
-                }
-                final SingleVariableDeclaration v = (SingleVariableDeclaration) it.next();
-                goCode.append(v.getName()).append(" ").append(javaType2Go(v.getType().toString()));
+            final ClassOrInterfaceDeclaration interfaceDeclaration = (ClassOrInterfaceDeclaration) type;
+            if (interfaceDeclaration.isInterface()) {
+                buildInterface(goCode, interfaceDeclaration);
+            } else {
+                buildStruct(hession2, goCode, fullPackageName, interfaceDeclaration);
             }
-            if (cnt > 0) {
-                goCode.append(")");
-            }
-
-            // 方法返回值
-            goCode.append("(").append(method.getReturnType2() == null ? "" : javaType2Go(method.getReturnType2().toString()) + ",").append("error)" +
-                "{\r\n}\r\n");
         }
 
-        if (hession2) {
-            // JavaClassName
-            goCode.append("\r\nfunc (").append(lowerFist(className))
-                .append(" *").append(className).append(") ").append("JavaClassName() string {\r\n")
-                .append("   return ").append("\"").append(packetDec.getName()).append(".").append(className).append("\"")
-                .append("\r\n} ");
-
-            // 注册POJO
-            goCode.append("\r\nfunc init() ").append("{\r\n")
-                .append("   hessian.RegisterPOJO(&").append(className).append("{})")
-                .append("\r\n} ");
-        }
 
         final GoCodeResult goCodeResult = new GoCodeResult();
         goCodeResult.setGoCode(goCode.toString());
         goCodeResult.setPackageName(packageName);
-        goCodeResult.setStructName(className);
+        goCodeResult.setStructName(typeName);
 
         return goCodeResult;
+
     }
 
-    private static String pickPackageName(final String javaPackageName) {
-        if(javaPackageName.lastIndexOf(".") > 0) {
-            return javaPackageName.substring(javaPackageName.lastIndexOf(".")+1);
+    private static void buildStruct(boolean hession2,
+                                    StringBuilder goCode,
+                                    String fullPackageName,
+                                    final ClassOrInterfaceDeclaration type) {
+        final String typeName = type.getName().getIdentifier();
+        goCode.append("type ").append(typeName).append(" struct{");
+
+
+        for (final Object member : type.getMembers()) {
+            //field
+            if (member instanceof com.github.javaparser.ast.body.FieldDeclaration) {
+                final FieldDeclaration field = (FieldDeclaration) member;
+                VariableDeclarator variable = field.getVariables().get(0);
+                final String javaFiledName = variable.getName().getIdentifier();
+                if ("serialVersionUID".equals(javaFiledName)) {
+                    continue;
+                }
+                final String hessian = hession2 ? "    `hessian:\"" + javaFiledName + "\"`" : "";
+                final String filedName = upperFist(javaFiledName);
+
+                goCode.append("  \r\n").append(filedName).append(" ").append(javaType2Go(variable.getType().asString())).append(hessian);
+            }
+
         }
-        return javaPackageName;
+
+        // 结构体字段结束
+        goCode.append("\r\n}\r\n");
+
+        for (final Object member : type.getMembers()) {
+            //method
+            if (member instanceof MethodDeclaration) {
+                final MethodDeclaration method = (MethodDeclaration) member;
+
+                // 方法关键词+名称
+                goCode.append("\r\nfunc (").append(lowerFist(typeName))
+                        .append(" *").append(typeName).append(") ").append(method.getName())
+                ;
+
+                // 方法参数
+                int cnt = 0;
+                goCode.append("(");
+                for (Iterator it = method.getParameters().iterator(); it.hasNext(); ) {
+                    if (cnt++ != 0) {
+                        goCode.append(",");
+                    }
+                    final Parameter v = (Parameter) it.next();
+                    goCode.append(v.getName().getIdentifier()).append(" ").append(javaType2Go(v.getType().asString()));
+                }
+                goCode.append(")");
+
+                // 方法返回值
+                if (method.getType() != null && "void".equals(method.getType().asString())) {
+                    goCode.append(" error {\n\r}\r\n");
+                } else {
+                    // 方法返回值
+                    goCode.append("(").append(method.getType() == null ? "" : javaType2Go(method.getType().asString()) + ",").append("error)" +
+                            "{\r\n}\r\n");
+                }
+            }
+        }
+
+        if (hession2) {
+            // JavaClassName
+            goCode.append("\r\nfunc (").append(lowerFist(typeName))
+                    .append(" *").append(typeName).append(") ").append("JavaClassName() string {\r\n")
+                    .append("   return ").append("\"").append(fullPackageName).append(".").append(typeName).append("\"")
+                    .append("\r\n} ");
+
+            // 注册POJO
+            goCode.append("\r\nfunc init() ").append("{\r\n")
+                    .append("   hessian.RegisterPOJO(&").append(typeName).append("{})")
+                    .append("\r\n} ");
+        }
+
     }
+
+
+    private static void buildInterface(final StringBuilder goCode,
+                                       final ClassOrInterfaceDeclaration type) {
+        final String typeName = type.getName().getIdentifier();
+        goCode.append("type ").append(typeName).append(" interface {");
+        for (final Object member : type.getMembers()) {
+            //method
+            if (member instanceof MethodDeclaration) {
+                final MethodDeclaration method = (MethodDeclaration) member;
+
+                // 方法关键词+名称
+                goCode.append("\r\n").append(upperFist(method.getName().getIdentifier()));
+
+                // 方法的参数
+                int parameterCount = 0;
+                goCode.append("(");
+                for (Iterator it = method.getParameters().iterator(); it.hasNext(); ) {
+                    if (parameterCount++ > 0) {
+                        goCode.append(",");
+                    }
+                    final Parameter v = (Parameter) it.next();
+                    goCode.append(v.getName().getIdentifier()).append(" ").append(javaType2Go(v.getType().asString()));
+                }
+                goCode.append(")");
+
+                // 方法返回值
+                if (method.getType() != null && "void".equals(method.getType().asString())) {
+                    goCode.append(" error\r\n");
+                } else {
+                    goCode.append("(").append(method.getType() == null ? "" : javaType2Go(method.getType().asString()) + ",").append("error)\r\n");
+                }
+            }
+        }
+
+        // 结构体字段结束
+        goCode.append("\r\n}\r\n");
+
+    }
+
 }

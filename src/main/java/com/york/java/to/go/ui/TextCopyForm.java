@@ -1,12 +1,12 @@
 package com.york.java.to.go.ui;
 
-import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
-import com.york.java.to.go.domain.JtgParm;
 import com.york.java.to.go.domain.GoCodeResult;
-import com.york.java.to.go.service.JavaToGo;
-import org.apache.commons.lang3.StringUtils;
+import com.york.java.to.go.domain.JtgParm;
+import com.york.java.to.go.service.JavaConvertToGo;
+import com.york.java.to.go.domain.StructType;
+import com.york.java.to.go.util.Utils;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
@@ -17,8 +17,6 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 
 public class TextCopyForm extends DialogWrapper {
-    private static final String tagPackageKey = "go-tag-tpl";
-
     private JPanel panel1;
     private JTextArea t1TextArea;
     private JTextArea t2TextArea;
@@ -55,24 +53,22 @@ public class TextCopyForm extends DialogWrapper {
             clipboard.setContents(selection, selection);
         });
 
-
-
         tagTextField.setText("");
         tagTextField.getDocument().addDocumentListener(new DocumentListener() {
-                    @Override
-                    public void insertUpdate(DocumentEvent e) {
-                        gen(2);
-                    }
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                gen(2);
+            }
 
-                    @Override
-                    public void removeUpdate(DocumentEvent e) {
-                        gen(2);
-                    }
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                gen(2);
+            }
 
-                    @Override
-                    public void changedUpdate(DocumentEvent e) {
-                        gen(2);
-                    }
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                gen(2);
+            }
         });
 
         hessain2CheckBox.addChangeListener(e -> gen(2));
@@ -80,35 +76,27 @@ public class TextCopyForm extends DialogWrapper {
         return panel1;
     }
 
-    private String getTpl() {
-        return PropertiesComponent.getInstance().getValue(tagPackageKey, "");
-    }
-
-    private void setTpl(String tpl) {
-        PropertiesComponent.getInstance().setValue(tagPackageKey, tpl, "");
-    }
-
     public void gen(int type) {
         final JtgParm jtgParm = new JtgParm();
         final String javaCode = this.t1TextArea.getText();
-        if(StringUtils.isBlank(javaCode)) {
+        if (Utils.isBlank(javaCode)) {
             this.t1TextArea.setText("请选中java类代码");
             return;
         }
 
         jtgParm.setJava(this.t1TextArea.getText());
-        jtgParm.setStructType(hessain2CheckBox.isSelected()?1:0);
-        if(StringUtils.isNotBlank(tagTextField.getText())) {
+        jtgParm.setStructType(hessain2CheckBox.isSelected() ? StructType.HESSION2.getVal() : StructType.COMMON.getVal());
+        if (!Utils.isBlank(tagTextField.getText())) {
             jtgParm.setPackageName(tagTextField.getText());
         }
         GoCodeResult result;
         try {
-            result = JavaToGo.parseToGo(jtgParm);
+            result = JavaConvertToGo.parseToGo(jtgParm);
             this.t2TextArea.setText(result.getGoCode());
             if (type != 2) {
                 this.tagTextField.setText(result.getPackageName());
             }
-        } catch (Exception e){
+        } catch (Exception e) {
             this.t2TextArea.setText("转换失败，请检查是否选择完整的java类代码");
         }
     }

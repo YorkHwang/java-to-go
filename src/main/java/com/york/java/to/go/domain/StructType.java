@@ -1,11 +1,11 @@
-package com.york.java.to.go.service;
+package com.york.java.to.go.domain;
 
 /**
  * @Description: 结构体类型
  */
 public enum StructType {
     /* 删除状态码 */
-    COMMON(0, "普通"),
+    COMMON(0, "COMMON"),
     /* 正常状态码 */
     HESSION2(1, "hession2");
 
